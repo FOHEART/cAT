@@ -37,6 +37,7 @@ cat_return_state cmd_uptime_run(const struct cat_command *cmd);
 cat_return_state cmd_ver_run(const struct cat_command *cmd);
 cat_return_state cmd_help_run(const struct cat_command *cmd);
 cat_return_state cmd_reset_run(const struct cat_command *cmd);
+cat_return_state cmd_restore_run(const struct cat_command *cmd);
 
 /*============================================================================*/
 /*                      Platform Abstraction Callbacks (__weak)               */
@@ -73,6 +74,13 @@ const char* cat_get_build_time(void);
  *        Default: infinite empty loop.
  */
 void cat_system_reset(void);
+
+/**
+ * @brief Restore factory defaults.
+ *        Override to implement project-specific factory reset logic.
+ *        Default: no-op (prints OK only).
+ */
+void cat_system_restore(void);
 
 #ifdef __cplusplus
 }

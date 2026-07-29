@@ -45,6 +45,11 @@ __attribute__((weak)) void cat_system_reset(void)
     while (1);
 }
 
+__attribute__((weak)) void cat_system_restore(void)
+{
+    /* Default: no-op — override to implement factory reset logic */
+}
+
 /*============================================================================*/
 /*                      Helper: print string via cat_write_char               */
 /*============================================================================*/
@@ -150,6 +155,21 @@ cat_return_state cmd_reset_run(const struct cat_command *cmd)
 }
 
 /*============================================================================*/
+/*                      AT+RESTORE                                            */
+/*============================================================================*/
+
+cat_return_state cmd_restore_run(const struct cat_command *cmd)
+{
+    (void)cmd;
+
+    cat_print("OK\r\n");
+
+    cat_system_restore();
+
+    return CAT_RETURN_STATE_OK;
+}
+
+/*============================================================================*/
 /*                      Command Table & Group Definition                      */
 /*============================================================================*/
 
@@ -178,6 +198,11 @@ static const struct cat_command s_cmds[] = {
         .name        = "+RESET",
         .description = "Reset MCU",
         .run         = cmd_reset_run,
+    },
+    {
+        .name        = "+RESTORE",
+        .description = "Restore factory defaults",
+        .run         = cmd_restore_run,
     },
 };
 
