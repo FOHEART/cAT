@@ -17,6 +17,7 @@
 #include "cat_cmds.h"
 #include "cat.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -48,6 +49,18 @@ __attribute__((weak)) void cat_system_reset(void)
 __attribute__((weak)) void cat_system_restore(void)
 {
     /* Default: no-op — override to implement factory reset logic */
+}
+
+__attribute__((weak)) uint32_t cat_get_baudrate(void)
+{
+    /* Default: return 0 — override to return actual UART baudrate */
+    return 0;
+}
+
+__attribute__((weak)) void cat_set_baudrate(uint32_t baudrate)
+{
+    /* Default: no-op — override to reconfigure UART hardware */
+    (void)baudrate;
 }
 
 /*============================================================================*/
@@ -170,6 +183,43 @@ cat_return_state cmd_restore_run(const struct cat_command *cmd)
 }
 
 /*============================================================================*/
+/*                      AT+UARTCFG? (read baudrate)                           */
+/*============================================================================*/
+
+cat_return_state cmd_uartcfg_read(const struct cat_command *cmd, uint8_t *data, size_t *data_size, const size_t max_data_size)
+{
+    (void)cmd;
+
+    uint32_t baud = cat_get_baudrate();
+
+    int n = snprintf((char *)data, max_data_size, "+UARTCFG:%lu\r\n", (unsigned long)baud);
+    if (n > 0 && (size_t)n < max_data_size)
+        *data_size = (size_t)n;
+
+    return CAT_RETURN_STATE_DATA_OK;
+}
+
+cat_return_state cmd_uartcfg_write(const struct cat_command *cmd, const uint8_t *data, const size_t data_size, const size_t args_num)
+{
+    (void)cmd;
+    (void)args_num;
+
+    /* Parse baudrate from argument string */
+    char buf[16];
+    size_t len = data_size < sizeof(buf) - 1 ? data_size : sizeof(buf) - 1;
+    memcpy(buf, (const char *)data, len);
+    buf[len] = '\0';
+
+    unsigned long baud = strtoul(buf, NULL, 10);
+    if (baud == 0)
+        return CAT_RETURN_STATE_ERROR;
+
+    cat_set_baudrate((uint32_t)baud);
+
+    return CAT_RETURN_STATE_OK;
+}
+
+/*============================================================================*/
 /*                      Command Table & Group Definition                      */
 /*============================================================================*/
 
@@ -203,6 +253,12 @@ static const struct cat_command s_cmds[] = {
         .name        = "+RESTORE",
         .description = "Restore factory defaults",
         .run         = cmd_restore_run,
+    },
+    {
+        .name        = "+UARTCFG",
+        .description = "Configure UART baudrate",
+        .read        = cmd_uartcfg_read,
+        .write       = cmd_uartcfg_write,
     },
 };
 

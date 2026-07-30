@@ -38,6 +38,8 @@ cat_return_state cmd_ver_run(const struct cat_command *cmd);
 cat_return_state cmd_help_run(const struct cat_command *cmd);
 cat_return_state cmd_reset_run(const struct cat_command *cmd);
 cat_return_state cmd_restore_run(const struct cat_command *cmd);
+cat_return_state cmd_uartcfg_read(const struct cat_command *cmd, uint8_t *data, size_t *data_size, const size_t max_data_size);
+cat_return_state cmd_uartcfg_write(const struct cat_command *cmd, const uint8_t *data, const size_t data_size, const size_t args_num);
 
 /*============================================================================*/
 /*                      Platform Abstraction Callbacks (__weak)               */
@@ -81,6 +83,20 @@ void cat_system_reset(void);
  *        Default: no-op (prints OK only).
  */
 void cat_system_restore(void);
+
+/**
+ * @brief Get UART baudrate.
+ *        Override to return the actual UART baudrate for AT+UARTCFG?.
+ * @return Baudrate value (default: 0)
+ */
+uint32_t cat_get_baudrate(void);
+
+/**
+ * @brief Set UART baudrate.
+ *        Override to reconfigure the UART with the given baudrate for AT+UARTCFG=<baud>.
+ * @param baudrate Baudrate value to set
+ */
+void cat_set_baudrate(uint32_t baudrate);
 
 #ifdef __cplusplus
 }
