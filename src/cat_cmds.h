@@ -91,6 +91,13 @@ void cat_system_restore(void);
 uint32_t cat_get_baudrate(void);
 
 /**
+ * @brief Get system clock frequency.
+ *        Override to return the actual SYSCLK for AT+INFO.
+ * @return SYSCLK frequency in Hz (default: 48000000)
+ */
+uint32_t cat_get_sys_clk(void);
+
+/**
  * @brief Set UART baudrate.
  *        Override to reconfigure the UART with the given baudrate for AT+UARTCFG=<baud>.
  * @param baudrate Baudrate value to set

@@ -241,8 +241,7 @@ The built-in commands depend on four platform-specific callbacks declared in `ca
 | `cat_system_reset()` | Spins forever | System reset (for `AT+RESET`) | `NVIC_SystemReset();` |
 | `cat_system_restore()` | No-op | Factory defaults restore (for `AT+RESTORE`) | `user_flash_erase_config(); NVIC_SystemReset();` |
 | `cat_get_baudrate()` | Returns `0` | Get UART baudrate (for `AT+UARTCFG?`) | `return 921600;` |
-| `cat_set_baudrate(baud)` | No-op | Set UART baudrate (for `AT+UARTCFG=<n>`) | `usart_init(USART1, baudrate, ...);` |
-
+| `cat_set_baudrate(baud)` | No-op | Set UART baudrate (for `AT+UARTCFG=<n>`) | `usart_init(USART1, baudrate, ...);` || `cat_get_sys_clk()` | Returns `48000000` | Get SYSCLK frequency (for `AT+INFO`) | `return 48000000;` |
 **Implementation** (in `user_cat_portable.c`):
 
 ```c
@@ -282,6 +281,11 @@ void cat_set_baudrate(uint32_t baudrate)
 {
     /* Reconfigure USART1 with the new baudrate */
     usart_init(USART1, baudrate, USART_DATA_8BITS, USART_STOP_1_BIT);
+}
+
+uint32_t cat_get_sys_clk(void)
+{
+    return 48000000;  /* match actual SYSCLK frequency */
 }
 ```
 

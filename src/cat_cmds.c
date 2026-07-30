@@ -21,6 +21,9 @@
 #include <string.h>
 #include <stdint.h>
 
+/* cat_write_char is provided by the user's portable layer */
+extern int cat_write_char(char ch);
+
 /*============================================================================*/
 /*                      Platform Abstraction Callbacks (Weak Defaults)        */
 /*============================================================================*/
@@ -63,6 +66,12 @@ __attribute__((weak)) void cat_set_baudrate(uint32_t baudrate)
     (void)baudrate;
 }
 
+__attribute__((weak)) uint32_t cat_get_sys_clk(void)
+{
+    /* Default: return 48000000 (48 MHz) — override to return actual SYSCLK */
+    return 48000000;
+}
+
 /*============================================================================*/
 /*                      Helper: print string via cat_write_char               */
 /*============================================================================*/
@@ -81,12 +90,15 @@ cat_return_state cmd_info_run(const struct cat_command *cmd)
 {
     (void)cmd;
 
-    cat_print("System Information\r\n");
-    cat_print("SCLK: 48000000 Hz\r\n");
-    cat_print("AHB:  48000000 Hz\r\n");
-    cat_print("APB1: 48000000 Hz\r\n");
-    cat_print("APB2: 48000000 Hz\r\n");
-    cat_print("APB3: 12000000 Hz\r\n");
+    /* System clock frequency */
+    {
+        unsigned long sclk = (unsigned long)cat_get_sys_clk() / 1000000;
+
+        char buf[32];
+        int n = snprintf(buf, sizeof(buf), "SCLK: %lu MHz\r\n", sclk);
+        for (int i = 0; i < n && i < (int)sizeof(buf); i++)
+            cat_write_char(buf[i]);
+    }
 
     /* Uptime */
     {
@@ -107,28 +119,12 @@ cat_return_state cmd_info_run(const struct cat_command *cmd)
 }
 
 /*============================================================================*/
-/*                      AT+UPTIME                                             */
+/*                      AT Command Set Version                                */
 /*============================================================================*/
 
-cat_return_state cmd_uptime_run(const struct cat_command *cmd)
-{
-    (void)cmd;
-
-    char buf[32];
-    unsigned int ms = cat_get_sys_tick();
-    unsigned int sec  = ms / 1000;
-    unsigned int min  = sec / 60;
-    unsigned int hr   = min / 60;
-
-    sec  %= 60;
-    min  %= 60;
-
-    int n = snprintf(buf, sizeof(buf), "Uptime: %u:%02u:%02u\r\n", hr, min, sec);
-    for (int i = 0; i < n && i < (int)sizeof(buf); i++)
-        cat_write_char(buf[i]);
-
-    return CAT_RETURN_STATE_OK;
-}
+#define CAT_AT_VERSION_MAJOR  0
+#define CAT_AT_VERSION_MINOR  1
+#define CAT_AT_VERSION_PATCH  0
 
 /*============================================================================*/
 /*                      AT+VER                                                */
@@ -137,6 +133,15 @@ cat_return_state cmd_uptime_run(const struct cat_command *cmd)
 cat_return_state cmd_ver_run(const struct cat_command *cmd)
 {
     (void)cmd;
+
+    cat_print("AT Version: ");
+    {
+        char buf[24];
+        int n = snprintf(buf, sizeof(buf), "%u.%u.%u\r\n",
+                         CAT_AT_VERSION_MAJOR, CAT_AT_VERSION_MINOR, CAT_AT_VERSION_PATCH);
+        for (int i = 0; i < n && i < (int)sizeof(buf); i++)
+            cat_write_char(buf[i]);
+    }
 
     cat_print("FW Version: ");
     cat_print(cat_get_fw_version());
@@ -277,8 +282,4 @@ struct cat_command_group cat_builtin_cmd_group = {
     .name     = "builtin",
     .cmd      = s_cmds,
     .cmd_num  = sizeof(s_cmds) / sizeof(s_cmds[0]),
-};
-
-static struct cat_command_group *s_cmd_groups[] = {
-    &cat_builtin_cmd_group,
 };
