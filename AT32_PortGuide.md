@@ -79,7 +79,7 @@ int cat_write_char(char ch);
 /* ... other project includes ... */
 ```
 
-> **Note**: There are **no separate `user_cat_cmds.c/h` files** needed if using the built-in commands from `cAT/src/cat_cmds.c`. The built-in commands provide `AT+INFO`, `AT+UPTIME`, `AT+VER`, `AT+HELP`, and `AT+RESET` — see Step 5 for details. If you need custom commands, implement them alongside the built-in group.
+> **Note**: There are **no separate `user_cat_cmds.c/h` files** needed if using the built-in commands from `cAT/src/cat_cmds.c`. The built-in commands provide `AT+INFO`, `AT+UPTIME`, `AT+VER`, `AT+HELP`, `AT+RESET`, `AT+RESTORE`, and `AT+UARTCFG` — see Step 5 for details. If you need custom commands, implement them alongside the built-in group.
 
 ---
 
@@ -195,15 +195,18 @@ static struct cat_command_group *s_cmd_groups[] = {
 
 ### Step 5: Use the Built-in AT Commands
 
-The `cAT/src/cat_cmds.c` file provides a **reusable command group** (`cat_builtin_cmd_group`) with the following built-in commands:
+The `cAT/src/cat_cmds.c` file provides a **reusable command group** (`cat_builtin_cmd_group`) with the following built-in commands. Uptime information is included in `AT+INFO` output (no separate `AT+UPTIME`). All commands are hardware-independent — platform-specific behavior is provided via __weak callbacks (see Step 6):
 
 | Handler | AT Syntax | Purpose |
 |---------|-----------|--------|
 | `cmd_info_run` | `AT+INFO` | Print system clock info |
-| `cmd_uptime_run` | `AT+UPTIME` | Print system uptime (requires SysTick) |
+| *(merged into `cmd_info_run`)* | *(see `AT+INFO`)* | Uptime is printed as part of `AT+INFO` |
 | `cmd_ver_run` | `AT+VER` | Print firmware version + build time |
 | `cmd_help_run` | `AT+HELP` | List all registered commands |
 | `cmd_reset_run` | `AT+RESET` | Reset MCU |
+| `cmd_restore_run` | `AT+RESTORE` | Restore factory defaults |
+| `cmd_uartcfg_read` | `AT+UARTCFG?` | Query UART baudrate |
+| `cmd_uartcfg_write` | `AT+UARTCFG=<baud>` | Set UART baudrate |
 
 **Registration** — in `user_cat_portable.c`, reference the external command group:
 
@@ -236,6 +239,9 @@ The built-in commands depend on four platform-specific callbacks declared in `ca
 | `cat_get_fw_version()` | Returns `"unknown"` | Firmware version string (for `AT+VER`) | `return user_fwVer_GetVersionString();` |
 | `cat_get_build_time()` | Returns `"unknown"` | Build timestamp string (for `AT+VER`) | `return user_fwVer_GetBuildTimeString();` |
 | `cat_system_reset()` | Spins forever | System reset (for `AT+RESET`) | `NVIC_SystemReset();` |
+| `cat_system_restore()` | No-op | Factory defaults restore (for `AT+RESTORE`) | `user_flash_erase_config(); NVIC_SystemReset();` |
+| `cat_get_baudrate()` | Returns `0` | Get UART baudrate (for `AT+UARTCFG?`) | `return 921600;` |
+| `cat_set_baudrate(baud)` | No-op | Set UART baudrate (for `AT+UARTCFG=<n>`) | `usart_init(USART1, baudrate, ...);` |
 
 **Implementation** (in `user_cat_portable.c`):
 
@@ -258,6 +264,24 @@ const char* cat_get_build_time(void)
 void cat_system_reset(void)
 {
     NVIC_SystemReset();
+}
+
+void cat_system_restore(void)
+{
+    /* Override with factory reset logic, e.g.:
+     * user_flash_erase_config();
+     * NVIC_SystemReset(); */
+}
+
+uint32_t cat_get_baudrate(void)
+{
+    return 921600;  /* match USART1 init baudrate */
+}
+
+void cat_set_baudrate(uint32_t baudrate)
+{
+    /* Reconfigure USART1 with the new baudrate */
+    usart_init(USART1, baudrate, USART_DATA_8BITS, USART_STOP_1_BIT);
 }
 ```
 
@@ -340,7 +364,7 @@ If you are **not** using libUartMgr and manage DMA directly, you will need to wi
 | 2 | Add `cAT/src` to include paths | `CMakeLists.txt` / EIDE builder.params | ☐ |
 | 3 | Create port header | `project/userinc/user_cat_portable.h` | ☐ |
 | 4 | Create port source with I/O callbacks | `project/usersrc/user_cat_portable.c` | ☐ |
-| 5 | Override `__weak` callbacks (`cat_get_sys_tick`, etc.) | `user_cat_portable.c` | ☐ |
+| 5 | Override `__weak` callbacks (7 callbacks total — see Step 6) | `user_cat_portable.c` | ☐ |
 | 6 | Add `#include "user_cat_portable.h"` | `main.c` | ☐ |
 | 7 | Call `user_cat_portable_init()` after USART/DMA init | `main.c` | ☐ |
 | 8 | Call `user_cat_portable_service()` in main loop | `main.c` | ☐ |
@@ -355,9 +379,9 @@ The cAT parser implements the standard Hayes AT command syntax over USART:
 
 | Command | Example | Response |
 |---------|---------|----------|
-| `AT+CMD` | `AT+LED` | `OK` / `ERROR` |
-| `AT+CMD?` | `AT+LED?` | `+LED: 0,1` → `OK` |
-| `AT+CMD=<value>` | `AT+LED=0,1` | `OK` / `ERROR` |
+| `AT+CMD` | `AT+INFO` | Text → `OK` |
+| `AT+CMD?` | `AT+UARTCFG?` | `+UARTCFG:<baud>` → `OK` |
+| `AT+CMD=<value>` | `AT+UARTCFG=115200` | `OK` |
 | `AT+CMD=?` | `AT+LED=?` | `+LED: (0-2),(0-3)` → `OK` |
 | `AT+HELP` | `AT+HELP` | Command list → `OK` |
 
@@ -373,6 +397,10 @@ The cAT parser implements the standard Hayes AT command syntax over USART:
 | Characters echoed but no `OK` | RX not feeding cAT parser | Verify `user_cat_portable_service()` is called in main loop |
 | `AT+VER` returns `"unknown"` | `__weak` attribute leaked from header | Ensure `cat_cmds.h` declarations do NOT have `__attribute__((weak))` (see Step 6 ⚠) |
 | `AT+UPTIME` returns `0:00:00` | `cat_get_sys_tick()` returns 0 | Override `cat_get_sys_tick()` to return real SysTick count |
+| `AT+UARTCFG?` returns `0` | `cat_get_baudrate()` not overridden | Override `cat_get_baudrate()` to return actual baudrate |
+| `AT+UARTCFG=<n>` returns `ERROR` | Baudrate value is 0 or invalid | Ensure argument is a positive integer (e.g., `AT+UARTCFG=115200`) |
+| `AT+UARTCFG=<n>` changes nothing | `cat_set_baudrate()` not overridden | Override `cat_set_baudrate()` to reconfigure USART hardware |
+| `AT+RESTORE` does nothing | `cat_system_restore()` not overridden | Override `cat_system_restore()` with factory reset logic |
 | `ERROR` for valid commands | Working buffer too small | Increase `CAT_WORK_BUF_SIZE` (try 512) |
 | Random characters / garbage | Baud rate mismatch | Verify terminal matches USART1 baud rate |
 | `AT+HELP` prints nothing | No commands registered | Check `s_cmd_groups` array contains `&cat_builtin_cmd_group` |
@@ -386,9 +414,9 @@ The cAT parser implements the standard Hayes AT command syntax over USART:
 - **cAT Library**: [https://github.com/marcinbor85/cAT](https://github.com/marcinbor85/cAT)
 - **AT32F422 Reference Manual**: Artery AT32F422/426 series
 - **Project Reference Files**:
-  - `project/usersrc/user_cat_portable.c` — USART1 + libUartMgr portable layer
+  - `project/usersrc/user_cat_portable.c` — USART1 + libUartMgr portable layer (I/O callbacks + __weak overrides)
   - `project/userinc/user_cat_portable.h` — portable layer API
-  - `cAT/src/cat_cmds.c` — built-in AT command implementations
-  - `cAT/src/cat_cmds.h` — built-in command declarations + __weak callback declarations
+  - `cAT/src/cat_cmds.c` — built-in AT command implementations (INFO, UPTIME, VER, HELP, RESET, RESTORE, UARTCFG)
+  - `cAT/src/cat_cmds.h` — built-in command declarations + 7 __weak callback declarations
   - `project/usersrc/user_fwVer.c` — firmware version + build time implementation
   - `project/usersrc/user_crm.c` — `getSysTick()` implementation

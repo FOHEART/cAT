@@ -3,7 +3,7 @@
   * @file     cat_cmds.c
   * @brief    cAT built-in AT command implementations — hardware-independent
   *
-  *           Commands: INFO, UPTIME, VER, HELP, RESET
+  *           Commands: INFO, VER, HELP, RESET, RESTORE, UARTCFG
   *
   *           Platform dependencies (SysTick, FW version, system reset) are
   *           abstracted via __attribute__((weak)) callbacks. Override them
@@ -87,6 +87,21 @@ cat_return_state cmd_info_run(const struct cat_command *cmd)
     cat_print("APB1: 48000000 Hz\r\n");
     cat_print("APB2: 48000000 Hz\r\n");
     cat_print("APB3: 12000000 Hz\r\n");
+
+    /* Uptime */
+    {
+        unsigned int ms = cat_get_sys_tick();
+        unsigned int sec  = ms / 1000;
+        unsigned int min  = sec / 60;
+        unsigned int hr   = min / 60;
+        sec  %= 60;
+        min  %= 60;
+
+        char buf[32];
+        int n = snprintf(buf, sizeof(buf), "Uptime: %u:%02u:%02u\r\n", hr, min, sec);
+        for (int i = 0; i < n && i < (int)sizeof(buf); i++)
+            cat_write_char(buf[i]);
+    }
 
     return CAT_RETURN_STATE_OK;
 }
@@ -229,11 +244,7 @@ static const struct cat_command s_cmds[] = {
         .description = "Print system information",
         .run         = cmd_info_run,
     },
-    {
-        .name        = "+UPTIME",
-        .description = "Print system uptime",
-        .run         = cmd_uptime_run,
-    },
+
     {
         .name        = "+VER",
         .description = "Print firmware version",

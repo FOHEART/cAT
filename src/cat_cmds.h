@@ -33,7 +33,6 @@ extern struct cat_command_group cat_builtin_cmd_group;
 /*============================================================================*/
 
 cat_return_state cmd_info_run(const struct cat_command *cmd);
-cat_return_state cmd_uptime_run(const struct cat_command *cmd);
 cat_return_state cmd_ver_run(const struct cat_command *cmd);
 cat_return_state cmd_help_run(const struct cat_command *cmd);
 cat_return_state cmd_reset_run(const struct cat_command *cmd);
