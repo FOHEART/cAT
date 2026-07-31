@@ -22,6 +22,16 @@ extern "C" {
 #endif
 
 /*============================================================================*/
+/*                      Mode Enum (AT+MODE)                                   */
+/*============================================================================*/
+
+/** Operating modes for AT+MODE */
+typedef enum {
+    CAT_MODE_CONFIG = 0,      /**< Configuration mode (AT commands active) */
+    CAT_MODE_MEASUREMENT,     /**< Measurement mode (sensor data streaming) */
+} cat_mode_t;
+
+/*============================================================================*/
 /*                      Built-in Command Group                                */
 /*============================================================================*/
 
@@ -39,6 +49,8 @@ cat_return_state cmd_reset_run(const struct cat_command *cmd);
 cat_return_state cmd_restore_run(const struct cat_command *cmd);
 cat_return_state cmd_uartcfg_read(const struct cat_command *cmd, uint8_t *data, size_t *data_size, const size_t max_data_size);
 cat_return_state cmd_uartcfg_write(const struct cat_command *cmd, const uint8_t *data, const size_t data_size, const size_t args_num);
+cat_return_state cmd_mode_read(const struct cat_command *cmd, uint8_t *data, size_t *data_size, const size_t max_data_size);
+cat_return_state cmd_mode_write(const struct cat_command *cmd, const uint8_t *data, const size_t data_size, const size_t args_num);
 
 /*============================================================================*/
 /*                      Platform Abstraction Callbacks (__weak)               */
@@ -60,14 +72,14 @@ uint32_t cat_get_sys_tick(void);
  *        Override to return a project-specific version for AT+VER.
  * @return Pointer to null-terminated version string (default: "unknown")
  */
-const char* cat_get_fw_version(void);
+const char *cat_get_fw_version(void);
 
 /**
  * @brief Get build time string.
  *        Override to return a project-specific build timestamp for AT+VER.
  * @return Pointer to null-terminated time string (default: "unknown")
  */
-const char* cat_get_build_time(void);
+const char *cat_get_build_time(void);
 
 /**
  * @brief System reset.
@@ -103,6 +115,20 @@ uint32_t cat_get_sys_clk(void);
  * @param baudrate Baudrate value to set
  */
 void cat_set_baudrate(uint32_t baudrate);
+
+/**
+ * @brief Get current operating mode.
+ *        Override to return the actual mode for AT+MODE?.
+ * @return Current mode (default: CAT_MODE_MEASUREMENT)
+ */
+cat_mode_t cat_get_mode(void);
+
+/**
+ * @brief Set operating mode.
+ *        Override to switch between config/measurement mode for AT+MODE=.
+ * @param mode Mode to set (CAT_MODE_CONFIG or CAT_MODE_MEASUREMENT)
+ */
+void cat_set_mode(cat_mode_t mode);
 
 #ifdef __cplusplus
 }
