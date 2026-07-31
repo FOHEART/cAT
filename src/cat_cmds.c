@@ -81,7 +81,8 @@ __attribute__((weak)) cat_mode_t cat_get_mode(void)
 
 __attribute__((weak)) void cat_set_mode(cat_mode_t mode)
 {
-    /* Default: no-op — override to switch device between config/measurement mode */
+    /* Default: no-op — override to switch device between config/measurement modes
+       and to trigger a one-shot measurement + data upload for CAT_MODE_REQUEST_MEASUREMENT */
     (void)mode;
 }
 
@@ -255,13 +256,25 @@ cat_return_state cmd_uartcfg_write(const struct cat_command *cmd, const uint8_t 
 /*                      AT+MODE? (read current mode)                           */
 /*============================================================================*/
 
+static const char *cat_mode_to_str(cat_mode_t mode)
+{
+    switch (mode) {
+    case CAT_MODE_CONFIG:
+        return "config";
+    case CAT_MODE_MEASUREMENT:
+        return "measurement";
+    case CAT_MODE_REQUEST_MEASUREMENT:
+        return "requestMeasurement";
+    default:
+        return "unknown";
+    }
+}
+
 cat_return_state cmd_mode_read(const struct cat_command *cmd, uint8_t *data, size_t *data_size, const size_t max_data_size)
 {
     (void)cmd;
 
-    const char *mode_str = (cat_get_mode() == CAT_MODE_CONFIG) ? "config" : "measurement";
-
-    int n = snprintf((char *)data, max_data_size, "+MODE:%s\r\n", mode_str);
+    int n = snprintf((char *)data, max_data_size, "+MODE:%s\r\n", cat_mode_to_str(cat_get_mode()));
     if (n > 0 && (size_t)n < max_data_size)
         *data_size = (size_t)n;
 
@@ -273,8 +286,8 @@ cat_return_state cmd_mode_write(const struct cat_command *cmd, const uint8_t *da
     (void)cmd;
     (void)args_num;
 
-    /* Parse mode from argument string: "config" or "measurement" */
-    char buf[16];
+    /* Parse mode from argument string: "config", "measurement" or "requestMeasurement" */
+    char buf[32];
     size_t len = data_size < sizeof(buf) - 1 ? data_size : sizeof(buf) - 1;
     memcpy(buf, (const char *)data, len);
     buf[len] = '\0';
@@ -284,6 +297,8 @@ cat_return_state cmd_mode_write(const struct cat_command *cmd, const uint8_t *da
         mode = CAT_MODE_CONFIG;
     else if (strcmp(buf, "measurement") == 0)
         mode = CAT_MODE_MEASUREMENT;
+    else if (strcmp(buf, "requestMeasurement") == 0)
+        mode = CAT_MODE_REQUEST_MEASUREMENT;
     else
         return CAT_RETURN_STATE_ERROR;
 
@@ -330,7 +345,7 @@ static const struct cat_command s_cmds[] = {
     },
     {
         .name = "+MODE",
-        .description = "AT+MODE?\r\n  Query current mode.\r\nAT+MODE=config|measurement\r\n  Switch config or measurement mode.\r\n",
+        .description = "AT+MODE?\r\n  Query current mode.\r\nAT+MODE=config|measurement|requestMeasurement\r\n  Switch mode or trigger one-shot measurement & upload.\r\n",
         .read = cmd_mode_read,
         .write = cmd_mode_write,
     },

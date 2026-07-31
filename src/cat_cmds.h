@@ -27,8 +27,9 @@ extern "C" {
 
 /** Operating modes for AT+MODE */
 typedef enum {
-    CAT_MODE_CONFIG = 0,      /**< Configuration mode (AT commands active) */
-    CAT_MODE_MEASUREMENT,     /**< Measurement mode (sensor data streaming) */
+    CAT_MODE_CONFIG = 0,            /**< Configuration mode (AT commands active) */
+    CAT_MODE_MEASUREMENT,           /**< Measurement mode (sensor data streaming) */
+    CAT_MODE_REQUEST_MEASUREMENT,   /**< Trigger one-shot measurement & data upload */
 } cat_mode_t;
 
 /*============================================================================*/
@@ -125,8 +126,10 @@ cat_mode_t cat_get_mode(void);
 
 /**
  * @brief Set operating mode.
- *        Override to switch between config/measurement mode for AT+MODE=.
- * @param mode Mode to set (CAT_MODE_CONFIG or CAT_MODE_MEASUREMENT)
+ *        Override to switch between config/measurement modes for AT+MODE=.
+ *        When mode is CAT_MODE_REQUEST_MEASUREMENT, trigger a one-shot
+ *        measurement + data upload, then typically return to the previous mode.
+ * @param mode Mode to set (CAT_MODE_CONFIG, CAT_MODE_MEASUREMENT or CAT_MODE_REQUEST_MEASUREMENT)
  */
 void cat_set_mode(cat_mode_t mode);
 
