@@ -86,6 +86,14 @@ __attribute__((weak)) void cat_set_mode(cat_mode_t mode)
     (void)mode;
 }
 
+__attribute__((weak)) bool cat_uartcfg_write_allowed(void)
+{
+    /* Default: allow AT+UARTCFG=<baud> to reconfigure the UART.
+       Override and return false on platforms where the AT port must keep its
+       baudrate fixed (e.g. when the same UART also carries log output). */
+    return true;
+}
+
 /*============================================================================*/
 /*                      Helper: print string via cat_write_char               */
 /*============================================================================*/
@@ -245,6 +253,10 @@ cat_return_state cmd_uartcfg_write(const struct cat_command *cmd, const uint8_t 
 
     unsigned long baud = strtoul(buf, NULL, 10);
     if (baud == 0)
+        return CAT_RETURN_STATE_ERROR;
+
+    /* Platform may reject runtime baudrate changes (see cat_uartcfg_write_allowed) */
+    if (!cat_uartcfg_write_allowed())
         return CAT_RETURN_STATE_ERROR;
 
     cat_set_baudrate((uint32_t)baud);

@@ -118,6 +118,15 @@ uint32_t cat_get_sys_clk(void);
 void cat_set_baudrate(uint32_t baudrate);
 
 /**
+ * @brief Check whether AT+UARTCFG=<baud> is allowed to change the baudrate at runtime.
+ *        Override and return false when the AT port must keep its baudrate fixed
+ *        (for example when the same UART also carries log output), in which case
+ *        AT+UARTCFG=<baud> responds with ERROR and the hardware is left untouched.
+ * @return true to allow the write (default), false to reject it
+ */
+bool cat_uartcfg_write_allowed(void);
+
+/**
  * @brief Get current operating mode.
  *        Override to return the actual mode for AT+MODE?.
  * @return Current mode (default: CAT_MODE_MEASUREMENT)
