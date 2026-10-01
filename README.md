@@ -24,8 +24,21 @@ Plain C library for parsing AT commands for use in host devices.
 * multiplatform and portable
 * asynchronous api with event callbacks
 * print registered commands list feature
-* only two source files
+* optional reusable built-in command group (INFO, VER, HELP, RESET, RESTORE, UARTCFG, MODE)
+* platform abstraction for the built-in commands through weak callbacks
+* portable: only the I/O layer is platform-specific
+* only two source files in the core
 * wide unit tests
+
+## Documentation
+
+| Document | Scope |
+|----------|-------|
+| `README.md` (this file) | Platform-independent library documentation: features, build, API usage, built-in commands, AT protocol |
+| [`doc/AT32_PortGuide.md`](doc/AT32_PortGuide.md) | Reference port for **AT32** (AT32F422 + USART1 + libUartMgr, RS485 half-duplex) — build integration, portable layer, checklists, troubleshooting |
+
+> Additional platform ports (e.g. STM32) should be added as new files under `doc/`, keeping this
+> README free of MCU-specific details.
 
 ## Build
 
@@ -209,3 +222,95 @@ while (1) {
 }
 
 ```
+
+## Built-in AT Commands
+
+`src/cat_cmds.c` provides a reusable command group (`cat_builtin_cmd_group`) with a standard set
+of commands. All of them are **hardware-independent** — platform behaviour is supplied through
+weak callbacks (see next section), which lets you register the whole group with a single pointer.
+
+| Handler | AT Syntax | Purpose |
+|---------|-----------|---------|
+| `cmd_info_run` | `AT+INFO` | Print SYSCLK and uptime |
+| `cmd_ver_run` | `AT+VER` | Print firmware version + build time |
+| `cmd_help_run` | `AT+HELP` | List all registered commands |
+| `cmd_reset_run` | `AT+RESET` | Reset the MCU |
+| `cmd_restore_run` | `AT+RESTORE` | Restore factory defaults |
+| `cmd_uartcfg_read` / `cmd_uartcfg_write` | `AT+UARTCFG?` / `AT+UARTCFG=<baud>` | Query / set the UART baudrate |
+| `cmd_mode_read` / `cmd_mode_write` | `AT+MODE?` / `AT+MODE=<mode>` | Query / set the operating mode (`cat_mode_t`) |
+
+Register the built-in group alongside your own command groups:
+
+```c
+extern struct cat_command_group cat_builtin_cmd_group; /* src/cat_cmds.c */
+extern struct cat_command_group my_custom_cmd_group;
+
+static struct cat_command_group *cmd_desc[] = {
+        &cat_builtin_cmd_group,
+        &my_custom_cmd_group,
+};
+```
+
+## Platform Callback Contract
+
+`cat_cmds.h` declares the callbacks used by the built-in commands. Default stubs are defined with
+`__attribute__((weak))` in `cat_cmds.c`, so a port only has to override the ones it needs.
+`cat_write_char()` is **not** weak — the portable layer must always provide it.
+
+| Callback | Default | Used by | Port responsibility |
+|----------|---------|---------|---------------------|
+| `cat_get_sys_tick()` | `0` | `AT+INFO` (uptime) | Return milliseconds since boot |
+| `cat_get_sys_clk()` | `48000000` | `AT+INFO` (SCLK) | Return the actual SYSCLK in Hz |
+| `cat_get_fw_version()` | `"unknown"` | `AT+VER` | Return the firmware version string |
+| `cat_get_build_time()` | `"unknown"` | `AT+VER` | Return the build timestamp string |
+| `cat_system_reset()` | spin forever | `AT+RESET` | Call the platform reset (`NVIC_SystemReset()`, ...) |
+| `cat_system_restore()` | no-op | `AT+RESTORE` | Erase config / restore factory defaults |
+| `cat_get_baudrate()` | `0` | `AT+UARTCFG?` | Return the current UART baudrate |
+| `cat_set_baudrate(baud)` | no-op | `AT+UARTCFG=<baud>` | Reconfigure the UART |
+| `cat_get_mode()` | `CAT_MODE_MEASUREMENT` | `AT+MODE?` | Return the current `cat_mode_t` |
+| `cat_set_mode(mode)` | no-op | `AT+MODE=<mode>` | Switch mode; `CAT_MODE_REQUEST_MEASUREMENT` triggers a one-shot measurement + upload |
+| `cat_write_char(ch)` | *(required, not weak)* | all output | Write one byte to the transport |
+
+> **⚠ Keep `__attribute__((weak))` off the declarations.** The attribute must appear **only on the
+> definitions** in `cat_cmds.c`, never on the prototypes in `cat_cmds.h`. If it is inherited from
+> the header, GCC also marks your strong overrides as weak and the linker may keep the stub
+> instead — e.g. `AT+VER` returns `"unknown"` even though your override is linked.
+
+Accessible modes:
+
+```c
+typedef enum {
+        CAT_MODE_CONFIG = 0,          /* AT commands active */
+        CAT_MODE_MEASUREMENT,         /* sensor data streaming */
+        CAT_MODE_REQUEST_MEASUREMENT, /* trigger one-shot measurement + upload */
+} cat_mode_t;
+```
+
+## AT Command Protocol
+
+The parser implements the standard Hayes AT command syntax on top of any byte-oriented transport:
+
+| Command | Example | Response |
+|---------|---------|----------|
+| `AT+CMD` | `AT+INFO` | Text → `OK` |
+| `AT+CMD?` | `AT+UARTCFG?` | `+UARTCFG:<baud>` → `OK` |
+| `AT+CMD=<value>` | `AT+UARTCFG=115200` | `OK` |
+| `AT+CMD=?` | `AT+LED=?` | `+LED: (0-2),(0-3)` → `OK` |
+| `AT+HELP` | `AT+HELP` | Command list → `OK` |
+
+**Newline handling**: commands are terminated with `\r\n` (CR+LF). The parser treats `\r` as the
+command terminator and ignores `\n`.
+
+## Porting to a New Platform
+
+Only the low-level I/O layer is platform-specific. A port provides:
+
+1. A **read-one-char** callback returning `0` when no data is available (non-blocking).
+2. A **write-one-char** callback (the required `cat_write_char()` symbol).
+3. A **working buffer** for the parser plus a `cat_descriptor` / `cat_object` instance.
+4. A periodic call to `cat_service()` — or a wrapper such as `user_cat_portable_service()`.
+5. Implementations of the [platform callbacks](#platform-callback-contract) the built-in
+   commands rely on.
+
+See [`doc/AT32_PortGuide.md`](doc/AT32_PortGuide.md) for a complete, working reference port
+(AT32F422 + USART1 + DMA/RS485) that can be used as a template for other MCUs.
