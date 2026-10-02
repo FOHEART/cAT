@@ -36,6 +36,7 @@ Plain C library for parsing AT commands for use in host devices.
 |----------|-------|
 | `README.md` (this file) | Platform-independent library documentation: features, build, API usage, built-in commands, AT protocol |
 | [`doc/AT32_PortGuide.md`](doc/AT32_PortGuide.md) | Reference port for **AT32** (AT32F422 + USART1 + libUartMgr, RS485 half-duplex) — build integration, portable layer, checklists, troubleshooting |
+| [`doc/STM32_PortGuide.md`](doc/STM32_PortGuide.md) | Reference port for **STM32 (HAL)** (STM32H563ZI + USART3, interrupt RX + line-buffered blocking TX) — build integration, port layer template, checklists, pitfalls |
 
 > Additional platform ports (e.g. STM32) should be added as new files under `doc/`, keeping this
 > README free of MCU-specific details.
@@ -314,3 +315,6 @@ Only the low-level I/O layer is platform-specific. A port provides:
 
 See [`doc/AT32_PortGuide.md`](doc/AT32_PortGuide.md) for a complete, working reference port
 (AT32F422 + USART1 + DMA/RS485) that can be used as a template for other MCUs.
+See [`doc/STM32_PortGuide.md`](doc/STM32_PortGuide.md) for the **STM32 (HAL)** reference port
+(STM32H563ZI + USART3, interrupt RX + line-buffered blocking TX) with a copy-ready port
+layer under [`add_to_main_codespace/stm32h5/`](add_to_main_codespace/stm32h5/).
