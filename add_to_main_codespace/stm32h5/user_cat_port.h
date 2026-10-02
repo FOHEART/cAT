@@ -13,7 +13,8 @@
  *
  * 常用修改点：
  *   1. 串口句柄与实例名（样例用 CubeMX 默认的 huart3 / USART3，见 user_cat_port.c）
- *   2. 系统主频 CAT_SYSCLK_HZ 与波特率 CAT_UART_BAUDRATE（务必与时钟/IOC 配置一致）
+ *   2. 波特率 CAT_UART_BAUDRATE（务必与时钟/IOC 配置一致）；系统主频用 HAL 的
+ *      HAL_RCC_GetSysClockFreq() 实时读取，不要写死（时钟可能动态变化）
  *   3. 缓冲大小（CAT_RX_BUF_SIZE 必须是 2 的幂；CAT_TX_BUF_SIZE 要能放下一条完整响应行）
  *   4. 日志接口：样例用 EasyLogger（elog_*），不用日志库时删掉 include 与 elog_* 调用
  *   5. 是否允许 AT+UARTCFG=<baud> 改波特率：样例返回 false（AT 口同时是日志口）

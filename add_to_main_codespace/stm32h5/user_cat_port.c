@@ -13,7 +13,8 @@
  *
  * 移植修改清单：
  *   [1] 串口句柄与实例：usart.h 里 CubeMX 生成的句柄名（样例 huart3）与 USART3 实例
- *   [2] CAT_SYSCLK_HZ / CAT_UART_BAUDRATE：与 DHCap.ioc（或你的时钟配置）一致
+ *   [2] CAT_UART_BAUDRATE：与 .ioc（或你的时钟配置）一致；系统主频不写死，用 HAL
+ *       的 HAL_RCC_GetSysClockFreq() 实时读取（时钟可动态变化）
  *   [3] CAT_FW_VERSION_STR：改成你的固件版本
  *   [4] 缓冲大小：CAT_RX_BUF_SIZE 必须 2 的幂；CAT_TX_BUF_SIZE 要放得下最长响应行
  *   [5] 日志：样例用 EasyLogger；不想引入日志库时删掉 <elog.h> 与所有 elog_* 调用
@@ -64,9 +65,11 @@
 #define CAT_FW_VERSION_STR  "DHCap"
 #define CAT_FW_BUILD_TIME_STR __DATE__ " " __TIME__
 
-/** [2] 系统时钟与串口波特率（与 .ioc / usart.c 一致）。 */
-#define CAT_SYSCLK_HZ       250000000U
+/** [2] 串口波特率（与 .ioc / usart.c 一致）。 */
 #define CAT_UART_BAUDRATE   921600U
+
+/* 系统主频不写死：运行时可能因时钟切换 / 低功耗模式而变化，由 HAL_RCC_GetSysClockFreq()
+ * 从 RCC 寄存器实时计算（见 cat_get_sys_clk）。 */
 
 /* ================================================================== */
 /*  静态状态（全部静态分配，无动态内存）                                 */
@@ -204,7 +207,8 @@ uint32_t cat_get_sys_tick(void)
 
 uint32_t cat_get_sys_clk(void)
 {
-  return CAT_SYSCLK_HZ;
+  /* 实时读取 RCC 寄存器计算 SYSCLK，随时钟切换 / 低功耗模式动态变化（AT+INFO 用） */
+  return HAL_RCC_GetSysClockFreq();
 }
 
 uint32_t cat_get_baudrate(void)
