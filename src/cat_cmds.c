@@ -18,8 +18,8 @@
 #include "cat.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
+#include "cat_mem.h"
 
 /* cat_write_char is provided by the user's portable layer */
 extern int cat_write_char(char ch);
@@ -248,7 +248,7 @@ cat_return_state cmd_uartcfg_write(const struct cat_command *cmd, const uint8_t 
     /* Parse baudrate from argument string */
     char buf[16];
     size_t len = data_size < sizeof(buf) - 1 ? data_size : sizeof(buf) - 1;
-    memcpy(buf, (const char *)data, len);
+    cat_memcpy(buf, (const char *)data, len);
     buf[len] = '\0';
 
     unsigned long baud = strtoul(buf, NULL, 10);
@@ -301,15 +301,15 @@ cat_return_state cmd_mode_write(const struct cat_command *cmd, const uint8_t *da
     /* Parse mode from argument string: "config", "measurement" or "requestMeasurement" */
     char buf[32];
     size_t len = data_size < sizeof(buf) - 1 ? data_size : sizeof(buf) - 1;
-    memcpy(buf, (const char *)data, len);
+    cat_memcpy(buf, (const char *)data, len);
     buf[len] = '\0';
 
     cat_mode_t mode;
-    if (strcmp(buf, "config") == 0)
+    if (cat_strcmp(buf, "config") == 0)
         mode = CAT_MODE_CONFIG;
-    else if (strcmp(buf, "measurement") == 0)
+    else if (cat_strcmp(buf, "measurement") == 0)
         mode = CAT_MODE_MEASUREMENT;
-    else if (strcmp(buf, "requestMeasurement") == 0)
+    else if (cat_strcmp(buf, "requestMeasurement") == 0)
         mode = CAT_MODE_REQUEST_MEASUREMENT;
     else
         return CAT_RETURN_STATE_ERROR;

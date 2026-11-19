@@ -25,8 +25,8 @@ SOFTWARE.
 #include "cat.h"
 
 #include <stdio.h>
-#include <string.h>
 #include <assert.h>
+#include "cat_mem.h"
 
 #define CAT_CMD_STATE_NOT_MATCH (0)
 #define CAT_CMD_STATE_PARTIAL_MATCH (1U)
@@ -324,7 +324,7 @@ static void ack_error(struct cat_object *self)
 {
         assert(self != NULL);
 
-        strncpy(get_atcmd_buf(self), "ERROR", get_atcmd_buf_size(self));
+        cat_strncpy(get_atcmd_buf(self), "ERROR", get_atcmd_buf_size(self));
         start_flush_io_buffer(self, CAT_STATE_AFTER_FLUSH_RESET);
 }
 
@@ -332,7 +332,7 @@ static void ack_ok(struct cat_object *self)
 {
         assert(self != NULL);
 
-        strncpy(get_atcmd_buf(self), "OK", get_atcmd_buf_size(self));
+        cat_strncpy(get_atcmd_buf(self), "OK", get_atcmd_buf_size(self));
         start_flush_io_buffer(self, CAT_STATE_AFTER_FLUSH_RESET);
 }
 
@@ -395,7 +395,7 @@ static int print_nstring_to_buf(struct cat_object *self, const char *str, size_t
         if (len >= get_left_buffer_space_by_fsm(self, fsm))
                 return -1;
 
-        memcpy(get_current_buffer_by_fsm(self, fsm), str, len);
+        cat_memcpy(get_current_buffer_by_fsm(self, fsm), str, len);
         move_position_by_fsm(self, len, fsm);
         get_current_buffer_by_fsm(self, fsm)[0] = '\0';
         return 0;
@@ -403,7 +403,7 @@ static int print_nstring_to_buf(struct cat_object *self, const char *str, size_t
 
 static int print_string_to_buf(struct cat_object *self, const char *str, cat_fsm_type fsm)
 {
-        return print_nstring_to_buf(self, str, strlen(str), fsm);
+        return print_nstring_to_buf(self, str, cat_strlen(str), fsm);
 }
 
 static int read_cmd_char(struct cat_object *self)
@@ -524,7 +524,7 @@ static void prepare_parse_command(struct cat_object *self)
 
         assert(self != NULL);
 
-        memset(get_atcmd_buf(self), val, get_atcmd_buf_size(self));
+        cat_memset(get_atcmd_buf(self), val, get_atcmd_buf_size(self));
 
         self->index = 0;
         self->length = 0;
@@ -814,7 +814,7 @@ static cat_status update_command(struct cat_object *self)
         size_t cmd_name_len;
 
         if (get_cmd_state(self, self->index) != CAT_CMD_STATE_NOT_MATCH) {
-                cmd_name_len = strlen(cmd->name);
+                cmd_name_len = cat_strlen(cmd->name);
 
                 if (self->length > cmd_name_len) {
                         set_cmd_state(self, self->index, CAT_CMD_STATE_NOT_MATCH);
@@ -1545,15 +1545,15 @@ static int format_num_hexadecimal(struct cat_object *self, cat_fsm_type fsm)
         switch (var->data_size) {
         case 1:
                 val = *(uint8_t *)var->data;
-                strcpy(fstr, "0x%02X");
+                cat_strcpy(fstr, "0x%02X");
                 break;
         case 2:
                 val = *(uint16_t *)var->data;
-                strcpy(fstr, "0x%04X");
+                cat_strcpy(fstr, "0x%04X");
                 break;
         case 4:
                 val = *(uint32_t *)var->data;
-                strcpy(fstr, "0x%08X");
+                cat_strcpy(fstr, "0x%08X");
                 break;
         default:
                 return -1;
@@ -1652,16 +1652,16 @@ static int format_info_type(struct cat_object *self, cat_fsm_type fsm)
 
         switch (var->access) {
         case CAT_VAR_ACCESS_READ_WRITE:
-                strcpy(accessor, "RW");
+                cat_strcpy(accessor, "RW");
                 break;
         case CAT_VAR_ACCESS_READ_ONLY:
-                strcpy(accessor, "RO");
+                cat_strcpy(accessor, "RO");
                 break;
         case CAT_VAR_ACCESS_WRITE_ONLY:
-                strcpy(accessor, "WO");
+                cat_strcpy(accessor, "WO");
                 break;
         default:
-                strcpy(accessor, "??");
+                cat_strcpy(accessor, "??");
                 break;
         }
 
@@ -1669,13 +1669,13 @@ static int format_info_type(struct cat_object *self, cat_fsm_type fsm)
         case CAT_VAR_INT_DEC:
                 switch (var->data_size) {
                 case 1:
-                        strcpy(var_type, "INT8");
+                        cat_strcpy(var_type, "INT8");
                         break;
                 case 2:
-                        strcpy(var_type, "INT16");
+                        cat_strcpy(var_type, "INT16");
                         break;
                 case 4:
-                        strcpy(var_type, "INT32");
+                        cat_strcpy(var_type, "INT32");
                         break;
                 default:
                         return -1;
@@ -1684,13 +1684,13 @@ static int format_info_type(struct cat_object *self, cat_fsm_type fsm)
         case CAT_VAR_UINT_DEC:
                 switch (var->data_size) {
                 case 1:
-                        strcpy(var_type, "UINT8");
+                        cat_strcpy(var_type, "UINT8");
                         break;
                 case 2:
-                        strcpy(var_type, "UINT16");
+                        cat_strcpy(var_type, "UINT16");
                         break;
                 case 4:
-                        strcpy(var_type, "UINT32");
+                        cat_strcpy(var_type, "UINT32");
                         break;
                 default:
                         return -1;
@@ -1699,23 +1699,23 @@ static int format_info_type(struct cat_object *self, cat_fsm_type fsm)
         case CAT_VAR_NUM_HEX:
                 switch (var->data_size) {
                 case 1:
-                        strcpy(var_type, "HEX8");
+                        cat_strcpy(var_type, "HEX8");
                         break;
                 case 2:
-                        strcpy(var_type, "HEX16");
+                        cat_strcpy(var_type, "HEX16");
                         break;
                 case 4:
-                        strcpy(var_type, "HEX32");
+                        cat_strcpy(var_type, "HEX32");
                         break;
                 default:
                         return -1;
                 }
                 break;
         case CAT_VAR_BUF_HEX:
-                strcpy(var_type, "HEXBUF");
+                cat_strcpy(var_type, "HEXBUF");
                 break;
         case CAT_VAR_BUF_STRING:
-                strcpy(var_type, "STRING");
+                cat_strcpy(var_type, "STRING");
                 break;
         default:
                 return -1;
@@ -2399,7 +2399,7 @@ struct cat_command const* cat_search_command_by_name(struct cat_object *self, co
 
         for (i = 0; i < self->commands_num; i++) {
                 cmd = get_command_by_index(self, i);
-                if (strcmp(cmd->name, name) == 0)
+                if (cat_strcmp(cmd->name, name) == 0)
                         return cmd;
         }
 
@@ -2416,7 +2416,7 @@ struct cat_command_group const* cat_search_command_group_by_name(struct cat_obje
 
         for (i = 0; i < self->desc->cmd_group_num; i++) {
                 cmd_group = self->desc->cmd_group[i];
-                if ((cmd_group->name != NULL) && (strcmp(cmd_group->name, name) == 0))
+                if ((cmd_group->name != NULL) && (cat_strcmp(cmd_group->name, name) == 0))
                         return cmd_group;
         }
 
@@ -2435,7 +2435,7 @@ struct cat_variable const* cat_search_variable_by_name(struct cat_object *self, 
 
         for (i = 0; i < cmd->var_num; i++) {
                 var = &cmd->var[i];
-                if ((var->name != NULL) && (strcmp(var->name, name) == 0))
+                if ((var->name != NULL) && (cat_strcmp(var->name, name) == 0))
                         return var;
         }
 
